@@ -28,7 +28,7 @@ interface AIAgent {
 const mockAgents: AIAgent[] = [
   {
     id: 1,
-    name: "PersonalAI Assistant",
+    name: "Personal Assistant ( PA )",
     type: "Personal Assistant",
     description: "Your 24/7 personal assistant that manages schedules, sends reminders, and keeps your life organized across multiple platforms.",
     priceInFlow: 8, // 8 FLOW tokens
@@ -48,7 +48,7 @@ const mockAgents: AIAgent[] = [
   },
   {
     id: 2,
-    name: "MarketingGPT Pro",
+    name: "Chief Marketing Officer ( CMO )",
     type: "Marketing Expert",
     description: "Advanced AI marketing expert that analyzes trends, crafts engaging content, and provides strategic insights based on real-time social media data.",
     priceInFlow: 10, // 10 FLOW tokens
@@ -68,7 +68,7 @@ const mockAgents: AIAgent[] = [
   },
   {
     id: 3,
-    name: "NewsRadar AI",
+    name: "Chief News Analyst ( CNA )",
     type: "News Analyzer",
     description: "Stay ahead with real-time news analysis and summaries. Never miss important market movements or trending topics with intelligent filtering.",
     priceInFlow: 7, // 7 FLOW tokens

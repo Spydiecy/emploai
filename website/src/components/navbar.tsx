@@ -21,8 +21,8 @@ const Navbar = () => {
   const [notification, setNotification] = useState<{ message: string; type: 'error' | 'success' } | null>(null);
 
   const menuItems: MenuItems[] = [
-    { name: 'Marketplace', href: '/marketplace' },
-    { name: 'Agents', href: '/agents' },
+    { name: 'Hire', href: '/marketplace' },
+    { name: 'EmploAies', href: '/agents' },
     { name: 'Features', href: '/features' },
     { name: 'About', href: '/about' },
     { name: 'Request', href: '/request-agent' },
