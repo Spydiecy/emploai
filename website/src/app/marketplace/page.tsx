@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Filter, Star, Clock, Zap, ChevronRight, Bell, MessageSquare, TrendingUp, Newspaper, ChevronDown, CircleDot, Sliders, Globe2, Wallet, Activity } from 'lucide-react';
+import { Search, Star, ChevronRight, Bell, MessageSquare, TrendingUp, Newspaper, CircleDot, Sliders, Globe2, Wallet, Activity } from 'lucide-react';
 import Image from 'next/image';
 import * as SimpleIcons from 'simple-icons';
 

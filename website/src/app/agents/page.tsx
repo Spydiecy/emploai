@@ -2,13 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { 
-  Settings, MessageSquare, Bell, Clock, ChevronRight, 
-  MoreVertical, Check, RefreshCw, Play, Pause, 
-  Wallet, Calendar, Link, User, ArrowUpRight, Shield,
+  Settings, MessageSquare, Bell, Clock,
+  Wallet, Shield,
   TrendingUp, Newspaper, Send,
-  Mail
 } from 'lucide-react';
-import Image from 'next/image';
 import * as SimpleIcons from 'simple-icons';
 import { formatDistanceToNow } from 'date-fns';
 

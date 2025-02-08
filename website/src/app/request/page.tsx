@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import { 
-  ChevronUp, MessageSquare, Users, Calendar, 
-  PlusCircle, TrendingUp, Tag, Search, Filter,
-  ArrowUpRight, X, DollarSign
+  ChevronUp, MessageSquare, Users,
+  PlusCircle, TrendingUp, Tag, Search,
+  X, DollarSign
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
