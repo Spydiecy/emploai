@@ -3,16 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Search, Filter, Star, Clock, Zap, ChevronRight, Bell, MessageSquare, TrendingUp, Newspaper, ChevronDown, CircleDot, Sliders, Globe2, Wallet, Activity } from 'lucide-react';
 import Image from 'next/image';
-import { 
-  SiDiscord, SiSlack, SiGithub, SiTwitter, SiTelegram, 
-  SiWhatsapp, SiGmail, SiMessenger, SiZoom, SiSkype,
-  SiOpenai, SiProbot, SiGoogleassistant, SiAzuredevops, 
-  SiGoogleanalytics, SiMicrosoftacademic
-} from 'react-icons/si';
-import { 
-  BsChatDotsFill, BsRobot, BsGearFill, 
-  BsGraphUpArrow, BsSearch, BsCodeSlash 
-} from 'react-icons/bs';
+import * as SimpleIcons from 'simple-icons';
 
 interface FlowPrice {
   amount: string;
@@ -97,32 +88,50 @@ const mockAgents: AIAgent[] = [
   }
 ];
 
-const typeIcons = {
-  'chatbot': BsChatDotsFill,
-  'assistant': BsRobot,
-  'automation': BsGearFill,
-  'analytics': BsGraphUpArrow,
-  'research': BsSearch,
-  'development': BsCodeSlash
+interface IntegrationIconProps {
+  name: string;
+  size?: number;
+  className?: string;
+}
+
+const IntegrationIcon: React.FC<IntegrationIconProps> = ({ name, size = 16, className = "" }) => {
+  const iconMap: { [key: string]: any } = {
+    "Discord": SimpleIcons.siDiscord,
+    "Telegram": SimpleIcons.siTelegram,
+    "Google Calendar": SimpleIcons.siGooglecalendar,
+    "Slack": SimpleIcons.siSlack,
+    "Twitter/X": SimpleIcons.siX,
+    "Instagram": SimpleIcons.siInstagram,
+    "TikTok": SimpleIcons.siTiktok,
+    "Reuters": SimpleIcons.siRss,
+    "CoinDesk": SimpleIcons.siCoinbase
+  };
+
+  const icon = iconMap[name];
+  if (!icon) return null;
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={className}
+      style={{ color: `#${icon.hex}` }}
+    >
+      <path d={icon.path} />
+    </svg>
+  );
 };
 
-const integrationIcons = {
-  'Discord': SiDiscord,
-  'Slack': SiSlack,
-  'Github': SiGithub,
-  'Twitter': SiTwitter,
-  'Telegram': SiTelegram,
-  'WhatsApp': SiWhatsapp,
-  'Email': SiGmail,
-  'Messenger': SiMessenger,
-  'Zoom': SiZoom,
-  'Skype': SiSkype,
-  'OpenAI': SiOpenai,
-  'Azure': SiAzuredevops,
-  'Google Analytics': SiGoogleanalytics,
-  'Google Assistant': SiGoogleassistant,
-  'Academic': SiMicrosoftacademic,
-  'Probot': SiProbot
+const IntegrationBadge: React.FC<{ integration: string }> = ({ integration }) => {
+  return (
+    <span className="flex items-center gap-2 px-3 py-1.5 bg-black/5 rounded-full text-sm 
+                     group-hover:bg-black/10 transition-colors">
+      <IntegrationIcon name={integration} size={14} />
+      {integration}
+    </span>
+  );
 };
 
 const MarketplacePage = () => {
@@ -284,10 +293,6 @@ const MarketplacePage = () => {
     }
   };
 
-  const renderIcon = (IconComponent: any, className = "w-4 h-4") => {
-    return <IconComponent className={className} />;
-  };
-
   return (
     <main className="min-h-screen bg-white pt-24 px-4">
       <div className="max-w-7xl mx-auto mb-12">
@@ -351,7 +356,7 @@ const MarketplacePage = () => {
               </select>
             </div>
 
-            {/* Updated Type Filter with Icons */}
+            {/* Type Filter with Icon */}
             <div className="relative inline-block">
               <Sliders className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
               <select
@@ -360,9 +365,7 @@ const MarketplacePage = () => {
               >
                 <option value="">All Types</option>
                 {agentTypes.map(type => (
-                  <option key={type} value={type} className="flex items-center gap-2">
-                    {type}
-                  </option>
+                  <option key={type} value={type}>{type}</option>
                 ))}
               </select>
             </div>
@@ -419,110 +422,92 @@ const MarketplacePage = () => {
 
         {/* Updated Agents Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-          {filteredAgents
-            .filter(agent => !availability || agent.status === availability)
-            .map(agent => {
-              const AgentIcon = getAgentIcon(agent.type);
-              return (
-                <div
-                  key={agent.id}
-                  className="flex flex-col border-2 border-black/10 rounded-xl p-6 min-h-[600px] hover:border-black/30 hover:shadow-lg transition-all duration-300 group"
-                >
-                  {/* Header Section */}
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="flex items-center gap-2">
-                      {renderIcon(typeIcons[agent.type.toLowerCase()], "w-5 h-5 text-black/70")}
-                      <span className={`px-3 py-1 rounded-full text-sm ${
-                        agent.status === 'available' ? 'bg-green-100 text-green-800' :
-                        agent.status === 'busy' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                      } group-hover:bg-opacity-80 transition-colors`}>
-                        {agent.status.charAt(0).toUpperCase() + agent.status.slice(1)}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Star className="w-4 h-4 fill-current text-yellow-400" />
-                      <span className="font-medium">{agent.rating}</span>
-                      <span className="text-black/60">({agent.reviews})</span>
-                    </div>
+          {filteredAgents.map(agent => {
+            const AgentIcon = getAgentIcon(agent.type);
+            return (
+              <div
+                key={agent.id}
+                className="flex flex-col border-2 border-black/10 rounded-xl p-6 min-h-[600px] hover:border-black/30 hover:shadow-lg transition-all duration-300 group"
+              >
+                {/* Header Section */}
+                <div className="flex justify-between items-start mb-4">
+                  <span className="px-3 py-1 rounded-full text-sm bg-green-100 text-green-800 group-hover:bg-green-200 transition-colors">
+                    {agent.status.charAt(0).toUpperCase() + agent.status.slice(1)}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <Star className="w-4 h-4 fill-current text-yellow-400" />
+                    <span className="font-medium">{agent.rating}</span>
+                    <span className="text-black/60">({agent.reviews})</span>
+                  </div>
+                </div>
+
+                {/* Title Section */}
+                <div className="flex items-center gap-3 mb-4">
+                  <AgentIcon className="w-8 h-8 group-hover:scale-110 transition-transform" />
+                  <h3 className="text-xl font-bold">{agent.name}</h3>
+                </div>
+
+                {/* Content Section - Flex Grow to Push Footer Down */}
+                <div className="flex-grow">
+                  <p className="text-black/70 mb-4">{agent.description}</p>
+
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">Key Features:</h4>
+                    <ul className="space-y-1">
+                      {agent.features.slice(0, 3).map((feature, index) => (
+                        <li key={index} className="flex items-center gap-2 text-sm group-hover:translate-x-1 transition-transform">
+                          <ChevronRight className="w-4 h-4" />
+                          {feature}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
 
-                  {/* Title Section */}
-                  <div className="flex items-center gap-3 mb-4">
-                    <AgentIcon className="w-8 h-8 group-hover:scale-110 transition-transform" />
-                    <h3 className="text-xl font-bold">{agent.name}</h3>
-                  </div>
-
-                  {/* Content Section - Flex Grow to Push Footer Down */}
-                  <div className="flex-grow">
-                    <p className="text-black/70 mb-4">{agent.description}</p>
-
-                    <div className="mb-4">
-                      <h4 className="font-semibold mb-2">Key Features:</h4>
-                      <ul className="space-y-1">
-                        {agent.features.slice(0, 3).map((feature, index) => (
-                          <li key={index} className="flex items-center gap-2 text-sm group-hover:translate-x-1 transition-transform">
-                            <ChevronRight className="w-4 h-4" />
-                            {feature}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <div className="mt-4">
-                      <h4 className="font-semibold mb-2">Integrations:</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {agent.integrations.map((integration, index) => {
-                          const IntegrationIcon = integrationIcons[integration];
-                          return (
-                            <div
-                              key={index}
-                              className="flex items-center gap-2 px-3 py-1.5 bg-black/5 rounded-full text-sm group-hover:bg-black/10 transition-colors"
-                            >
-                              {IntegrationIcon && renderIcon(IntegrationIcon, "w-4 h-4")}
-                              {integration}
-                            </div>
-                          );
-                        })}
-                      </div>
+                  <div className="mb-4">
+                    <h4 className="font-semibold mb-2">Integrations:</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {agent.integrations.map((integration, index) => (
+                        <IntegrationBadge key={index} integration={integration} />
+                      ))}
                     </div>
                   </div>
+                </div>
 
-                  {/* Footer Section - Always at Bottom */}
-                  <div className="flex items-center justify-between mt-6 pt-4 border-t border-black/10">
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2 text-2xl font-bold">
-                        <Image
-                          src={paymentType === 'FLOW' ? "/assets/flow.png" : "/assets/usdt.png"}
-                          alt={paymentType}
-                          width={24}
-                          height={24}
-                          className="rounded-full"
-                        />
-                        {paymentType === 'FLOW' ? 
-                          `${agent.priceInFlow} FLOW` : 
-                          `${(agent.priceInFlow * currencyRates.FLOW_USD / currencyRates.USDT_USD).toFixed(2)} USDT`
-                        }
-                      </div>
-                      <div className="text-black/60">
-                        {currencySymbols[selectedCurrency]}
-                        {calculatePrice(agent.priceInFlow)}
-                      </div>
-                    </div>
-                    <button className="px-6 py-2 bg-black text-white rounded-lg hover:bg-black/80 hover:scale-105 transition-all duration-300 flex items-center gap-2">
-                      <span>Pay with</span>
+                {/* Footer Section - Always at Bottom */}
+                <div className="flex items-center justify-between mt-6 pt-4 border-t border-black/10">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2 text-2xl font-bold">
                       <Image
                         src={paymentType === 'FLOW' ? "/assets/flow.png" : "/assets/usdt.png"}
                         alt={paymentType}
-                        width={20}
-                        height={20}
+                        width={24}
+                        height={24}
                         className="rounded-full"
                       />
-                    </button>
+                      {paymentType === 'FLOW' ? 
+                        `${agent.priceInFlow} FLOW` : 
+                        `${(agent.priceInFlow * currencyRates.FLOW_USD / currencyRates.USDT_USD).toFixed(2)} USDT`
+                      }
+                    </div>
+                    <div className="text-black/60">
+                      {currencySymbols[selectedCurrency]}
+                      {calculatePrice(agent.priceInFlow)}
+                    </div>
                   </div>
+                  <button className="px-6 py-2 bg-black text-white rounded-lg hover:bg-black/80 hover:scale-105 transition-all duration-300 flex items-center gap-2">
+                    <span>Pay with</span>
+                    <Image
+                      src={paymentType === 'FLOW' ? "/assets/flow.png" : "/assets/usdt.png"}
+                      alt={paymentType}
+                      width={20}
+                      height={20}
+                      className="rounded-full"
+                    />
+                  </button>
                 </div>
-              );
-            })}
+              </div>
+            );
+          })}
         </div>
       </div>
     </main>
