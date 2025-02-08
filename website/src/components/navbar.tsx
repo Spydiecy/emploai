@@ -24,8 +24,8 @@ const Navbar = () => {
     { name: 'Hire', href: '/marketplace' },
     { name: 'EmploAies', href: '/agents' },
     { name: 'Features', href: '/features' },
-    { name: 'About', href: '/about' },
-    { name: 'Request', href: '/request-agent' },
+    { name: 'Create', href: '/create' },
+    { name: 'Request', href: '/request' },
   ];
 
   const FLOW_TESTNET_PARAMS = {
