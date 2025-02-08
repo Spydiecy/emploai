@@ -296,7 +296,7 @@ const MarketplacePage = () => {
   return (
     <main className="min-h-screen bg-white pt-24 px-4">
       <div className="max-w-7xl mx-auto mb-12">
-        <h1 className="text-4xl font-bold mb-8 text-center">AI Agent Marketplace</h1>
+        <h1 className="text-4xl font-bold mb-8 text-center">AI Agent Employment Space</h1>
         
         {/* Enhanced Search and Filter Layout */}
         <div className="mb-8 space-y-6">
