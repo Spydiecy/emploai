@@ -38,6 +38,8 @@ EmploAI is a revolutionary platform that reimagines how businesses integrate AI 
 - Web3 Context Provider
 
 ### External Integrations
+- Coinbase Developer Platform ( Onramp / Fiat payments integration )
+- Autonome ( Ai agents deployment )
 - Coinbase Price API
 - Discord/Telegram APIs
 - Social Media APIs
