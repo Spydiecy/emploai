@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react';
 import { Search, Star, ChevronRight, Bell, MessageSquare, TrendingUp, Newspaper, CircleDot, Sliders, Globe2, Wallet, Activity } from 'lucide-react';
 import Image from 'next/image';
 import * as SimpleIcons from 'simple-icons';
+import { ethers } from 'ethers';
+import { CONTRACT_ABI, CONTRACT_ADDRESS } from '@/constants/contract';
+import React from 'react';
 
 interface AIAgent {
   id: number;
@@ -18,6 +21,8 @@ interface AIAgent {
   responseTime: string;
   integrations: string[];
   features: string[];
+  isActive: boolean;
+  isSubscribed?: boolean;
 }
 
 const mockAgents: AIAgent[] = [
@@ -39,7 +44,9 @@ const mockAgents: AIAgent[] = [
       "Priority task management",
       "Automated follow-ups",
       "Calendar optimization"
-    ]
+    ],
+    isActive: true,
+    isSubscribed: true
   },
   {
     id: 2,
@@ -59,7 +66,9 @@ const mockAgents: AIAgent[] = [
       "Competitor analysis",
       "Engagement optimization",
       "Content calendar planning"
-    ]
+    ],
+    isActive: true,
+    isSubscribed: true
   },
   {
     id: 3,
@@ -79,7 +88,9 @@ const mockAgents: AIAgent[] = [
       "Customized news digest",
       "Sentiment analysis",
       "Investment opportunities spotting"
-    ]
+    ],
+    isActive: true,
+    isSubscribed: true
   }
 ];
 
@@ -137,6 +148,8 @@ const IntegrationBadge: React.FC<{ integration: string }> = ({ integration }) =>
 };
 
 const MarketplacePage = () => {
+  const [agents, setAgents] = useState<AIAgent[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [selectedIntegration, setSelectedIntegration] = useState<string | null>(null);
@@ -172,6 +185,8 @@ const MarketplacePage = () => {
   };
 
   const [availability, setAvailability] = useState<string | null>(null);
+  const [account, setAccount] = useState<string>('');
+  const [contract, setContract] = useState<ethers.Contract | null>(null);
 
   const availabilityColors = {
     available: 'text-green-500',
@@ -181,6 +196,97 @@ const MarketplacePage = () => {
 
   const getAvailabilityIcon = (status: string) => {
     return <CircleDot className={`w-4 h-4 ${availabilityColors[status as keyof typeof availabilityColors]}`} />;
+  };
+
+  useEffect(() => {
+    initializeWeb3();
+    fetchAgents();
+  }, []);
+  const initializeWeb3 = async () => {
+    if (typeof window !== 'undefined' && (window as any).ethereum !== undefined) {
+      try {
+        const accounts = await (window as any).ethereum.request({ method: 'eth_accounts' });
+        if (accounts.length > 0) {
+          setAccount(accounts[0]);
+          const provider = new ethers.providers.Web3Provider((window as any).ethereum);
+          const signer = provider.getSigner();
+          const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+          setContract(contract);
+        }
+      } catch (error) {
+        console.error('Error initializing web3:', error);
+      }
+    }
+  };
+
+  const fetchAgents = async () => {
+    if (!contract) return;
+
+    try {
+      const agentsData: AIAgent[] = [];
+      const agentIds = [1, 2, 3]; // Only fetch these specific agents
+
+      for (const id of agentIds) {
+        try {
+          const agent = await contract.getAgent(id);
+          const isSubscribed = account ? await contract.hasActiveSubscription(account, id) : false;
+
+          if (agent.isActive) { // Only add if the agent is active
+            agentsData.push({
+              id,
+              name: agent.name,
+              description: agent.description,
+              priceInFlow: Number(ethers.utils.formatEther(agent.pricePerMonth)),
+              integrations: agent.integrations,
+              features: agent.features,
+              isActive: agent.isActive,
+              isSubscribed,
+              type: '',
+              rating: 0,
+              reviews: 0,
+              capabilities: [],
+              status: 'available',
+              responseTime: ''
+            });
+          }
+        } catch (error) {
+          console.error(`Error fetching agent ${id}:`, error);
+          // Continue with the next agent if one fails
+        }
+      }
+
+      setAgents(agentsData);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching agents:', error);
+      setLoading(false);
+    }
+  };
+
+  const handleSubscription = async (agentId: number, price: number) => {
+    if (!contract || !account) {
+      alert('Please connect your wallet first');
+      return;
+    }
+
+    try {
+      const tx = await contract.purchaseSubscription(agentId, {
+        value: ethers.utils.parseEther(price.toString())
+      });
+      await tx.wait();
+      
+      // Update the local state to reflect the new subscription
+      setAgents(prevAgents => 
+        prevAgents.map(agent => 
+          agent.id === agentId ? { ...agent, isSubscribed: true } : agent
+        )
+      );
+
+      alert('Subscription purchased successfully!');
+    } catch (error) {
+      console.error('Error purchasing subscription:', error);
+      alert('Failed to purchase subscription. Please try again.');
+    }
   };
 
   useEffect(() => {
@@ -267,7 +373,7 @@ const MarketplacePage = () => {
     }
   };
 
-  const filteredAgents = mockAgents.filter(agent => {
+  const filteredAgents = agents.filter(agent => {
     const matchesSearch = 
       agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       agent.description.toLowerCase().includes(searchQuery.toLowerCase());
@@ -279,8 +385,8 @@ const MarketplacePage = () => {
     return matchesSearch && matchesType && matchesIntegration && matchesPrice && matchesRating && matchesAvailability;
   });
 
-  const agentTypes = Array.from(new Set(mockAgents.map(agent => agent.type)));
-  const allIntegrations = Array.from(new Set(mockAgents.flatMap(agent => agent.integrations)));
+  const agentTypes = Array.from(new Set(agents.map(agent => agent.type)));
+  const allIntegrations = Array.from(new Set(agents.flatMap(agent => agent.integrations)));
 
   const getAgentIcon = (type: string) => {
     switch (type) {
@@ -293,6 +399,105 @@ const MarketplacePage = () => {
       default:
         return MessageSquare;
     }
+  };
+
+  const renderAgentCard = (agent: AIAgent) => {
+    return (
+      <div
+        key={agent.id}
+        className="flex flex-col border-2 border-black/10 rounded-xl p-6 min-h-[600px] hover:border-black/30 hover:shadow-lg transition-all duration-300 group"
+      >
+        {/* Header Section */}
+        <div className="flex justify-between items-start mb-4">
+          <span className="px-3 py-1 rounded-full text-sm bg-green-100 text-green-800 group-hover:bg-green-200 transition-colors">
+            {agent.status.charAt(0).toUpperCase() + agent.status.slice(1)}
+          </span>
+          <div className="flex items-center gap-1">
+            <Star className="w-4 h-4 fill-current text-yellow-400" />
+            <span className="font-medium">{agent.rating}</span>
+            <span className="text-black/60">({agent.reviews})</span>
+          </div>
+        </div>
+
+        {/* Title Section */}
+        <div className="flex items-center gap-3 mb-4">
+          {React.createElement(getAgentIcon(agent.type), {
+            className: "w-8 h-8 group-hover:scale-110 transition-transform"
+          })}
+          <h3 className="text-xl font-bold">{agent.name}</h3>
+        </div>
+
+        {/* Content Section - Flex Grow to Push Footer Down */}
+        <div className="flex-grow">
+          <p className="text-black/70 mb-4">{agent.description}</p>
+
+          <div className="mb-4">
+            <h4 className="font-semibold mb-2">Key Features:</h4>
+            <ul className="space-y-1">
+              {agent.features.slice(0, 3).map((feature, index) => (
+                <li key={index} className="flex items-center gap-2 text-sm group-hover:translate-x-1 transition-transform">
+                  <ChevronRight className="w-4 h-4" />
+                  {feature}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="mb-4">
+            <h4 className="font-semibold mb-2">Integrations:</h4>
+            <div className="flex flex-wrap gap-2">
+              {agent.integrations.map((integration, index) => (
+                <IntegrationBadge key={index} integration={integration} />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Footer Section - Always at Bottom */}
+        <div className="flex items-center justify-between mt-6 pt-4 border-t border-black/10">
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2 text-2xl font-bold">
+              <Image
+                src="/assets/flow.png"
+                alt="FLOW"
+                width={24}
+                height={24}
+                className="rounded-full"
+              />
+              {agent.priceInFlow} FLOW
+            </div>
+            <div className="text-black/60">
+              {currencySymbols[selectedCurrency]}
+              {calculatePrice(agent.priceInFlow)}
+            </div>
+          </div>
+          
+          {agent.isSubscribed ? (
+            <button 
+              className="px-6 py-2 bg-green-500 text-white rounded-lg flex items-center gap-2 cursor-default"
+              disabled
+            >
+              <span>Subscribed</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          ) : (
+            <button
+              onClick={() => handleSubscription(agent.id, agent.priceInFlow)}
+              className="px-6 py-2 bg-black text-white rounded-lg hover:bg-black/80 hover:scale-105 transition-all duration-300 flex items-center gap-2"
+            >
+              <span>Subscribe with</span>
+              <Image
+                src="/assets/flow.png"
+                alt="FLOW"
+                width={20}
+                height={20}
+                className="rounded-full"
+              />
+            </button>
+          )}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -424,92 +629,11 @@ const MarketplacePage = () => {
 
         {/* Updated Agents Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-          {filteredAgents.map(agent => {
-            const AgentIcon = getAgentIcon(agent.type);
-            return (
-              <div
-                key={agent.id}
-                className="flex flex-col border-2 border-black/10 rounded-xl p-6 min-h-[600px] hover:border-black/30 hover:shadow-lg transition-all duration-300 group"
-              >
-                {/* Header Section */}
-                <div className="flex justify-between items-start mb-4">
-                  <span className="px-3 py-1 rounded-full text-sm bg-green-100 text-green-800 group-hover:bg-green-200 transition-colors">
-                    {agent.status.charAt(0).toUpperCase() + agent.status.slice(1)}
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <Star className="w-4 h-4 fill-current text-yellow-400" />
-                    <span className="font-medium">{agent.rating}</span>
-                    <span className="text-black/60">({agent.reviews})</span>
-                  </div>
-                </div>
-
-                {/* Title Section */}
-                <div className="flex items-center gap-3 mb-4">
-                  <AgentIcon className="w-8 h-8 group-hover:scale-110 transition-transform" />
-                  <h3 className="text-xl font-bold">{agent.name}</h3>
-                </div>
-
-                {/* Content Section - Flex Grow to Push Footer Down */}
-                <div className="flex-grow">
-                  <p className="text-black/70 mb-4">{agent.description}</p>
-
-                  <div className="mb-4">
-                    <h4 className="font-semibold mb-2">Key Features:</h4>
-                    <ul className="space-y-1">
-                      {agent.features.slice(0, 3).map((feature, index) => (
-                        <li key={index} className="flex items-center gap-2 text-sm group-hover:translate-x-1 transition-transform">
-                          <ChevronRight className="w-4 h-4" />
-                          {feature}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="mb-4">
-                    <h4 className="font-semibold mb-2">Integrations:</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {agent.integrations.map((integration, index) => (
-                        <IntegrationBadge key={index} integration={integration} />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Footer Section - Always at Bottom */}
-                <div className="flex items-center justify-between mt-6 pt-4 border-t border-black/10">
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2 text-2xl font-bold">
-                      <Image
-                        src={paymentType === 'FLOW' ? "/assets/flow.png" : "/assets/usdt.png"}
-                        alt={paymentType}
-                        width={24}
-                        height={24}
-                        className="rounded-full"
-                      />
-                      {paymentType === 'FLOW' ? 
-                        `${agent.priceInFlow} FLOW` : 
-                        `${(agent.priceInFlow * currencyRates.FLOW_USD / currencyRates.USDT_USD).toFixed(2)} USDT`
-                      }
-                    </div>
-                    <div className="text-black/60">
-                      {currencySymbols[selectedCurrency]}
-                      {calculatePrice(agent.priceInFlow)}
-                    </div>
-                  </div>
-                  <button className="px-6 py-2 bg-black text-white rounded-lg hover:bg-black/80 hover:scale-105 transition-all duration-300 flex items-center gap-2">
-                    <span>Pay with</span>
-                    <Image
-                      src={paymentType === 'FLOW' ? "/assets/flow.png" : "/assets/usdt.png"}
-                      alt={paymentType}
-                      width={20}
-                      height={20}
-                      className="rounded-full"
-                    />
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+          {loading ? (
+            <div>Loading agents...</div>
+          ) : (
+            filteredAgents.map(agent => renderAgentCard(agent))
+          )}
         </div>
       </div>
     </main>

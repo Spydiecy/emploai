@@ -2,6 +2,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { Providers } from './providers'
 import Navbar from '@/components/navbar'
+import { Web3Provider } from '@/contexts/Web3Context';
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -15,8 +16,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className={inter.className}>
         <Providers>
-          <Navbar />
-          {children}
+          <Web3Provider>
+            <Navbar />
+            {children}
+          </Web3Provider>
         </Providers>
       </body>
     </html>
