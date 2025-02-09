@@ -23,7 +23,7 @@ const Navbar = () => {
   const menuItems: MenuItems[] = [
     { name: 'Hire', href: '/marketplace' },
     { name: 'EmploAies', href: '/agents' },
-    { name: 'Features', href: '/features' },
+    { name: 'Feed', href: '/feed' },
     { name: 'Create', href: '/create' },
     { name: 'Request', href: '/request' },
   ];
