@@ -5,10 +5,11 @@ import { Search, Star, ChevronRight, Bell, MessageSquare, TrendingUp, Newspaper,
 import Image from 'next/image';
 import * as SimpleIcons from 'simple-icons';
 import { ethers } from 'ethers';
-import { CONTRACT_ABI, CONTRACT_ADDRESS } from '@/constants/contract';
 import React from 'react';
 import { useWeb3 } from '@/contexts/Web3Context';
 import Toast from '@/components/Toast';
+import CoinbasePaymentModal from '@/components/CoinbasePaymentModal';
+import { generateOnrampURL } from '@/utils/coinbase';
 
 interface AIAgent {
   id: number;
@@ -26,75 +27,6 @@ interface AIAgent {
   isActive: boolean;
   isSubscribed?: boolean;
 }
-
-const mockAgents: AIAgent[] = [
-  {
-    id: 1,
-    name: "Personal Assistant ( PA )",
-    type: "Personal Assistant",
-    description: "Your 24/7 personal assistant that manages schedules, sends reminders, and keeps your life organized across multiple platforms.",
-    priceInFlow: 8, // 8 FLOW tokens
-    rating: 4.8,
-    reviews: 156,
-    capabilities: ["Schedule Management", "Meeting Reminders", "Task Prioritization", "Communication"],
-    status: "available",
-    responseTime: "Real-time",
-    integrations: ["Discord", "Telegram", "Google Calendar", "Slack"],
-    features: [
-      "Smart meeting scheduling",
-      "Multi-platform notifications",
-      "Priority task management",
-      "Automated follow-ups",
-      "Calendar optimization"
-    ],
-    isActive: true,
-    isSubscribed: true
-  },
-  {
-    id: 2,
-    name: "Chief Marketing Officer ( CMO )",
-    type: "Marketing Expert",
-    description: "Advanced AI marketing expert that analyzes trends, crafts engaging content, and provides strategic insights based on real-time social media data.",
-    priceInFlow: 10, // 10 FLOW tokens
-    rating: 4.9,
-    reviews: 142,
-    capabilities: ["Trend Analysis", "Content Creation", "Strategy Planning", "Performance Tracking"],
-    status: "available",
-    responseTime: "< 2min",
-    integrations: ["Twitter/X", "LinkedIn", "Instagram", "TikTok"],
-    features: [
-      "Real-time trend monitoring",
-      "Viral content prediction",
-      "Competitor analysis",
-      "Engagement optimization",
-      "Content calendar planning"
-    ],
-    isActive: true,
-    isSubscribed: true
-  },
-  {
-    id: 3,
-    name: "Chief News Analyst ( CNA )",
-    type: "News Analyzer",
-    description: "Stay ahead with real-time news analysis and summaries. Never miss important market movements or trending topics with intelligent filtering.",
-    priceInFlow: 7, // 7 FLOW tokens
-    rating: 4.7,
-    reviews: 98,
-    capabilities: ["News Monitoring", "Trend Detection", "Summary Generation", "Alert System"],
-    status: "available",
-    responseTime: "< 1min",
-    integrations: ["Twitter/X", "Reuters", "Bloomberg", "CoinDesk"],
-    features: [
-      "Real-time news filtering",
-      "Market movement alerts",
-      "Customized news digest",
-      "Sentiment analysis",
-      "Investment opportunities spotting"
-    ],
-    isActive: true,
-    isSubscribed: true
-  }
-];
 
 interface IntegrationIconProps {
   name: string;
@@ -161,7 +93,7 @@ const MarketplacePage = () => {
   type CurrencyType = 'USD' | 'EUR' | 'GBP' | 'JPY' | 'AUD' | 'CAD' | 'CHF' | 'INR' | 'CNY';
   
   const [selectedCurrency, setSelectedCurrency] = useState<CurrencyType>('USD');
-  const [paymentType, setPaymentType] = useState<'FLOW' | 'USDT'>('FLOW');
+  const [paymentType, setPaymentType] = useState<'FLOW' | 'FIAT'>('FLOW');
   const [currencyRates, setCurrencyRates] = useState({
     FLOW_USD: 0,
     USDT_USD: 1,
@@ -210,6 +142,11 @@ const MarketplacePage = () => {
       setToast(prev => ({ ...prev, visible: false }));
     }, 3000);
   };
+
+  const [isOnrampLoading, setIsOnrampLoading] = useState(false);
+  const [purchasingAgentId, setPurchasingAgentId] = useState<number | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedAgent, setSelectedAgent] = useState<AIAgent | null>(null);
 
   const fetchAgents = async () => {
     try {
@@ -405,6 +342,164 @@ const MarketplacePage = () => {
     }
   };
 
+  const handleFiatPurchase = async (agent: AIAgent) => {
+    if (!account) {
+      showToast('Please connect your wallet first', 'error');
+      return;
+    }
+
+    try {
+      setPurchasingAgentId(agent.id);
+      setIsOnrampLoading(true);
+
+      // Generate the onramp URL
+      const onrampUrl = generateOnrampURL({
+        address: account,
+        // Don't set presetCryptoAmount to allow user selection
+        redirectUrl: encodeURIComponent(`${window.location.origin}/marketplace?success=true&agentId=${agent.id}`)
+      });
+
+      console.log('Opening Coinbase URL:', onrampUrl);
+      
+      // Open in new window
+      const newWindow = window.open(onrampUrl, '_blank');
+      
+      if (newWindow) {
+        showToast('Coinbase payment window opened', 'success');
+      } else {
+        showToast('Please allow popups to continue with payment', 'error');
+      }
+
+    } catch (error: any) {
+      console.error('Error initiating fiat purchase:', error);
+      showToast(error.message || 'Failed to initiate purchase', 'error');
+    } finally {
+      setIsOnrampLoading(false);
+      setPurchasingAgentId(null);
+    }
+  };
+
+  // Add this effect to handle redirect back from Coinbase
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const success = params.get('success');
+    const agentId = params.get('agentId');
+
+    if (success === 'true' && agentId) {
+      // Clean up URL
+      window.history.replaceState({}, '', '/marketplace');
+      
+      // Update agent subscription status
+      setAgents(prevAgents =>
+        prevAgents.map(agent =>
+          agent.id === Number(agentId) ? { ...agent, isSubscribed: true } : agent
+        )
+      );
+      
+      showToast('Successfully purchased subscription!', 'success');
+    }
+  }, []);
+
+  const handlePaymentSuccess = () => {
+    showToast('Demo: Purchase successful! (Mocked for hackathon)', 'success');
+    if (selectedAgent) {
+      setAgents(prevAgents =>
+        prevAgents.map(agent =>
+          agent.id === selectedAgent.id ? { ...agent, isSubscribed: true } : agent
+        )
+      );
+    }
+  };
+
+  const renderPaymentSwitch = () => (
+    <div className="flex items-center gap-2 p-1 bg-white rounded-lg shadow-sm">
+      <button
+        onClick={() => setPaymentType('FLOW')}
+        className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all ${
+          paymentType === 'FLOW' ? 'bg-black text-white' : 'hover:bg-black/5'
+        }`}
+      >
+        <Image src="/assets/flow.png" alt="FLOW" width={20} height={20} className="rounded-full" />
+        FLOW
+      </button>
+      <button
+        onClick={() => setPaymentType('FIAT')}
+        className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all ${
+          paymentType === 'FIAT' ? 'bg-black text-white' : 'hover:bg-black/5'
+        }`}
+      >
+        <Image src="/assets/coinbase.png" alt="Coinbase" width={20} height={20} className="rounded-full" />
+        Buy with Fiat
+      </button>
+    </div>
+  );
+
+  const renderSubscriptionButton = (agent: AIAgent) => {
+    if (agent.isSubscribed) {
+      return (
+        <button 
+          className="px-6 py-2 bg-green-500 text-white rounded-lg flex items-center gap-2 cursor-default"
+          disabled
+        >
+          <span>Subscribed</span>
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      );
+    }
+
+    if (paymentType === 'FIAT') {
+      const isCurrentlyPurchasing = purchasingAgentId === agent.id;
+      return (
+        <button
+          onClick={() => handleFiatPurchase(agent)}
+          disabled={isOnrampLoading}
+          className={`
+            px-6 py-2 bg-black text-white rounded-lg 
+            hover:bg-black/80 hover:scale-105 
+            transition-all duration-300 
+            flex items-center gap-2
+            ${isOnrampLoading && isCurrentlyPurchasing ? 'opacity-50 cursor-not-allowed' : ''}
+          `}
+        >
+          {isOnrampLoading && isCurrentlyPurchasing ? (
+            <>
+              <span>Opening Coinbase...</span>
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            </>
+          ) : (
+            <>
+              <span>Buy with Fiat</span>
+              <Image
+                src="/assets/coinbase.png"
+                alt="Coinbase"
+                width={20}
+                height={20}
+                className="rounded-full"
+              />
+            </>
+          )}
+        </button>
+      );
+    }
+
+    // FLOW payment button
+    return (
+      <button
+        onClick={() => handleSubscription(agent.id, agent.priceInFlow)}
+        className="px-6 py-2 bg-black text-white rounded-lg hover:bg-black/80 hover:scale-105 transition-all duration-300 flex items-center gap-2"
+      >
+        <span>Subscribe with</span>
+        <Image
+          src="/assets/flow.png"
+          alt="FLOW"
+          width={20}
+          height={20}
+          className="rounded-full"
+        />
+      </button>
+    );
+  };
+
   const renderAgentCard = (agent: AIAgent) => {
     return (
       <div
@@ -476,29 +571,7 @@ const MarketplacePage = () => {
             </div>
           </div>
           
-          {agent.isSubscribed ? (
-            <button 
-              className="px-6 py-2 bg-green-500 text-white rounded-lg flex items-center gap-2 cursor-default"
-              disabled
-            >
-              <span>Subscribed</span>
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          ) : (
-            <button
-              onClick={() => handleSubscription(agent.id, agent.priceInFlow)}
-              className="px-6 py-2 bg-black text-white rounded-lg hover:bg-black/80 hover:scale-105 transition-all duration-300 flex items-center gap-2"
-            >
-              <span>Subscribe with</span>
-              <Image
-                src="/assets/flow.png"
-                alt="FLOW"
-                width={20}
-                height={20}
-                className="rounded-full"
-              />
-            </button>
-          )}
+          {renderSubscriptionButton(agent)}
         </div>
       </div>
     );
@@ -534,27 +607,7 @@ const MarketplacePage = () => {
 
           {/* Filters Row */}
           <div className="flex flex-wrap items-center gap-4 p-4 bg-black/5 rounded-xl">
-            {/* Payment Type Switch */}
-            <div className="flex items-center gap-2 p-1 bg-white rounded-lg shadow-sm">
-              <button
-                onClick={() => setPaymentType('FLOW')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all ${
-                  paymentType === 'FLOW' ? 'bg-black text-white' : 'hover:bg-black/5'
-                }`}
-              >
-                <Image src="/assets/flow.png" alt="FLOW" width={20} height={20} className="rounded-full" />
-                FLOW
-              </button>
-              <button
-                onClick={() => setPaymentType('USDT')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all ${
-                  paymentType === 'USDT' ? 'bg-black text-white' : 'hover:bg-black/5'
-                }`}
-              >
-                <Image src="/assets/coinbase.png" alt="USDT" width={20} height={20} className="rounded-full" />
-                USDT
-              </button>
-            </div>
+            {renderPaymentSwitch()}
 
             {/* Currency Selector with Icon */}
             <div className="relative inline-block">
@@ -649,6 +702,19 @@ const MarketplacePage = () => {
           )}
         </div>
       </div>
+
+      {/* Add the modal */}
+      {showPaymentModal && selectedAgent && (
+        <CoinbasePaymentModal
+          isOpen={showPaymentModal}
+          onClose={() => {
+            setShowPaymentModal(false);
+            setSelectedAgent(null);
+          }}
+          amount={selectedAgent.priceInFlow}
+          onSuccess={handlePaymentSuccess}
+        />
+      )}
     </main>
   );
 };
