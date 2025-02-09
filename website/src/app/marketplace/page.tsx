@@ -693,14 +693,22 @@ const MarketplacePage = () => {
           </div>
         </div>
 
-        {/* Updated Agents Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-          {loading ? (
-            <div>Loading agents...</div>
-          ) : (
-            filteredAgents.map(agent => renderAgentCard(agent))
-          )}
-        </div>
+        {/* Loading State */}
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black"></div>
+            <p className="mt-4 text-black/60">Loading employees...</p>
+          </div>
+        ) : agents.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-black/60">No employees found</p>
+          </div>
+        ) : (
+          /* Agents Grid */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+            {filteredAgents.map(agent => renderAgentCard(agent))}
+          </div>
+        )}
       </div>
 
       {/* Add the modal */}
