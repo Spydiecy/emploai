@@ -9,11 +9,8 @@ import {
 import * as SimpleIcons from 'simple-icons';
 import { formatDistanceToNow } from 'date-fns';
 
-interface AgentSubscription {
-  startDate: Date;
-  endDate: Date;
-  status: 'active' | 'expired' | 'paused';
-  autoRenew: boolean;
+interface CustomSettings {
+  [key: string]: string | number | boolean;
 }
 
 interface AgentConfig {
@@ -26,10 +23,14 @@ interface AgentConfig {
     discord: boolean;
     telegram: boolean;
   };
-  customSettings?: {
-    [key: string]: any;
-  };
-  [key: string]: any;
+  customSettings?: CustomSettings;
+}
+
+interface AgentSubscription {
+  startDate: Date;
+  endDate: Date;
+  status: 'active' | 'expired' | 'paused';
+  autoRenew: boolean;
 }
 
 interface UserAgent {
@@ -178,7 +179,6 @@ const AgentsPage = () => {
   const [selectedAgent, setSelectedAgent] = useState<UserAgent | null>(null);
   const [activeTab, setActiveTab] = useState<'chat' | 'config' | 'subscription'>('chat');
   const [newMessage, setNewMessage] = useState('');
-  const [isConfiguring, setIsConfiguring] = useState(false);
 
   useEffect(() => {
     if (mockUserAgents.length > 0) {

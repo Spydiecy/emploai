@@ -5,11 +5,6 @@ import { Search, Star, ChevronRight, Bell, MessageSquare, TrendingUp, Newspaper,
 import Image from 'next/image';
 import * as SimpleIcons from 'simple-icons';
 
-interface FlowPrice {
-  amount: string;
-  currency: string;
-}
-
 interface AIAgent {
   id: number;
   name: string;
@@ -94,8 +89,15 @@ interface IntegrationIconProps {
   className?: string;
 }
 
+interface IconMap {
+  [key: string]: {
+    path: string;
+    hex: string;
+  };
+}
+
 const IntegrationIcon: React.FC<IntegrationIconProps> = ({ name, size = 16, className = "" }) => {
-  const iconMap: { [key: string]: any } = {
+  const iconMap: IconMap = {
     "Discord": SimpleIcons.siDiscord,
     "Telegram": SimpleIcons.siTelegram,
     "Google Calendar": SimpleIcons.siGooglecalendar,
