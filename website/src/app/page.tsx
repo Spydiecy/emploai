@@ -2,6 +2,7 @@
 
 import { Bot, ShieldCheck, Wallet, BarChart3, ChevronRight, Users, Clock, ArrowRight, Sparkles } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function Home() {
   const features = [
@@ -93,11 +94,17 @@ export default function Home() {
               </div>
             </div>
             <div 
-              className="relative"
+              className="relative w-full h-full"
               data-aos="fade-left"
             >
-              {/* Add hero image or illustration here */}
-              <div className="aspect-square rounded-2xl bg-black/5 border border-black/10" />
+              <Image
+                src="/assets/home.png"
+                alt="EmploAI Hero Illustration" 
+                width={1920}
+                height={1920}
+                className="rounded-2xl w-full object-contain shadow-[0_0_15px_rgba(0,0,0,0.2)]"
+                priority
+              />
             </div>
           </div>
         </div>

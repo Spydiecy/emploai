@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import * as SimpleIcons from 'simple-icons';
 import { formatDistanceToNow } from 'date-fns';
+import { useWeb3 } from '@/contexts/Web3Context';
+import { ethers } from 'ethers';
 
 interface CustomSettings {
   [key: string]: string | number | boolean;
@@ -176,15 +178,94 @@ const Integration = ({ name, size }: { name: string; size: number }) => {
 };
 
 const AgentsPage = () => {
+  const { account, contract } = useWeb3();
+  const [agents, setAgents] = useState<UserAgent[]>([]);
   const [selectedAgent, setSelectedAgent] = useState<UserAgent | null>(null);
   const [activeTab, setActiveTab] = useState<'chat' | 'config' | 'subscription'>('chat');
   const [newMessage, setNewMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch subscribed agents
+  const fetchSubscribedAgents = async () => {
+    if (!contract || !account) return;
+
+    try {
+      setIsLoading(true);
+      const subscribedAgents: UserAgent[] = [];
+
+      // Try first 10 agent IDs (adjust based on your needs)
+      for (let id = 1; id <= 10; id++) {
+        try {
+          // Check if user has active subscription for this agent
+          const hasSubscription = await contract.hasActiveSubscription(account, id);
+          
+          if (hasSubscription) {
+            // Get agent details
+            const [name, description, pricePerMonth, integrations, features, isActive] = 
+              await contract.getAgent(id);
+
+            // Get subscription details
+            const [startDate, endDate, isActive_sub] = 
+              await contract.getSubscriptionDetails(account, id);
+
+            if (isActive && isActive_sub) {
+              subscribedAgents.push({
+                id,
+                name,
+                type: "AI Agent", // Default type
+                description,
+                subscription: {
+                  startDate: new Date(startDate.toNumber() * 1000),
+                  endDate: new Date(endDate.toNumber() * 1000),
+                  status: 'active',
+                  autoRenew: false // Not implemented in contract
+                },
+                config: {
+                  notificationPreferences: {
+                    email: false,
+                    discord: false,
+                    telegram: false
+                  }
+                },
+                lastActive: new Date(),
+                status: 'online',
+                integrations,
+                features,
+                chatHistory: [
+                  {
+                    id: 1,
+                    message: "Hello! I'm your new AI assistant.",
+                    timestamp: new Date(),
+                    sender: 'agent'
+                  }
+                ]
+              });
+            }
+          }
+        } catch (error) {
+          console.log(`No agent at index ${id} or error fetching:`, error);
+        }
+      }
+
+      setAgents(subscribedAgents);
+      
+      // Set first agent as selected if available
+      if (subscribedAgents.length > 0 && !selectedAgent) {
+        setSelectedAgent(subscribedAgents[0]);
+      }
+
+    } catch (error) {
+      console.error('Error fetching subscribed agents:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (mockUserAgents.length > 0) {
-      setSelectedAgent(mockUserAgents[0]);
+    if (contract && account) {
+      fetchSubscribedAgents();
     }
-  }, []);
+  }, [contract, account]);
 
   const getAgentIcon = (type: string) => {
     switch (type) {
@@ -275,7 +356,7 @@ const AgentsPage = () => {
           <h2 className="text-xl font-bold">My Agents</h2>
         </div>
         <div className="divide-y divide-black/10">
-          {mockUserAgents.map(agent => {
+          {agents.map(agent => {
             const AgentIcon = getAgentIcon(agent.type);
             return (
               <div
@@ -475,18 +556,31 @@ const AgentsPage = () => {
     <main className="min-h-screen bg-white pt-24 px-4">
       <div className="max-w-7xl mx-auto">
         <div className="border-2 border-black rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 flex bg-white/50 backdrop-blur-sm">
-          {renderAgentList()}
-          {selectedAgent ? (
-            <div className="flex-1 flex flex-col">
-              {renderAgentHeader()}
-              {activeTab === 'chat' && renderChatPanel()}
-              {activeTab === 'config' && renderConfigPanel()}
-              {activeTab === 'subscription' && renderSubscriptionPanel()}
+          {isLoading ? (
+            <div className="flex-1 flex flex-col items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black"></div>
+              <p className="mt-4 text-black/60">Loading your ai employees...</p>
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center">
-              <p className="text-black/60">Select an agent to get started</p>
-            </div>
+            <>
+              {renderAgentList()}
+              {selectedAgent ? (
+                <div className="flex-1 flex flex-col">
+                  {renderAgentHeader()}
+                  {activeTab === 'chat' && renderChatPanel()}
+                  {activeTab === 'config' && renderConfigPanel()}
+                  {activeTab === 'subscription' && renderSubscriptionPanel()}
+                </div>
+              ) : (
+                <div className="flex-1 flex items-center justify-center">
+                  <p className="text-black/60">
+                    {agents.length === 0 
+                      ? "You haven't subscribed to any agents yet" 
+                      : "Select an agent to get started"}
+                  </p>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
