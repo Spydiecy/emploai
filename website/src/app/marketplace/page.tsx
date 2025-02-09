@@ -7,6 +7,8 @@ import * as SimpleIcons from 'simple-icons';
 import { ethers } from 'ethers';
 import { CONTRACT_ABI, CONTRACT_ADDRESS } from '@/constants/contract';
 import React from 'react';
+import { useWeb3 } from '@/contexts/Web3Context';
+import Toast from '@/components/Toast';
 
 interface AIAgent {
   id: number;
@@ -148,6 +150,7 @@ const IntegrationBadge: React.FC<{ integration: string }> = ({ integration }) =>
 };
 
 const MarketplacePage = () => {
+  const { account, contract } = useWeb3();
   const [agents, setAgents] = useState<AIAgent[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -185,8 +188,11 @@ const MarketplacePage = () => {
   };
 
   const [availability, setAvailability] = useState<string | null>(null);
-  const [account, setAccount] = useState<string>('');
-  const [contract, setContract] = useState<ethers.Contract | null>(null);
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'error';
+    visible: boolean;
+  }>({ message: '', type: 'success', visible: false });
 
   const availabilityColors = {
     available: 'text-green-500',
@@ -198,74 +204,65 @@ const MarketplacePage = () => {
     return <CircleDot className={`w-4 h-4 ${availabilityColors[status as keyof typeof availabilityColors]}`} />;
   };
 
-  useEffect(() => {
-    initializeWeb3();
-    fetchAgents();
-  }, []);
-  const initializeWeb3 = async () => {
-    if (typeof window !== 'undefined' && (window as any).ethereum !== undefined) {
-      try {
-        const accounts = await (window as any).ethereum.request({ method: 'eth_accounts' });
-        if (accounts.length > 0) {
-          setAccount(accounts[0]);
-          const provider = new ethers.providers.Web3Provider((window as any).ethereum);
-          const signer = provider.getSigner();
-          const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-          setContract(contract);
-        }
-      } catch (error) {
-        console.error('Error initializing web3:', error);
-      }
-    }
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ message, type, visible: true });
+    setTimeout(() => {
+      setToast(prev => ({ ...prev, visible: false }));
+    }, 3000);
   };
 
   const fetchAgents = async () => {
-    if (!contract) return;
-
     try {
       const agentsData: AIAgent[] = [];
-      const agentIds = [1, 2, 3]; // Only fetch these specific agents
+      const agentIds = [1, 2, 3];
 
       for (const id of agentIds) {
         try {
-          const agent = await contract.getAgent(id);
+          if (!contract) continue;
+          const [name, description, pricePerMonth, integrations, features, isActive] = await contract.getAgent(id);
           const isSubscribed = account ? await contract.hasActiveSubscription(account, id) : false;
 
-          if (agent.isActive) { // Only add if the agent is active
+          if (isActive) {
             agentsData.push({
               id,
-              name: agent.name,
-              description: agent.description,
-              priceInFlow: Number(ethers.utils.formatEther(agent.pricePerMonth)),
-              integrations: agent.integrations,
-              features: agent.features,
-              isActive: agent.isActive,
-              isSubscribed,
-              type: '',
-              rating: 0,
-              reviews: 0,
-              capabilities: [],
+              name,
+              type: name.split('(')[1]?.replace(')', '').trim() || 'AI Agent',
+              description,
+              priceInFlow: Number(ethers.utils.formatEther(pricePerMonth)),
+              rating: 4.8,
+              reviews: 100,
+              capabilities: features,
               status: 'available',
-              responseTime: ''
+              responseTime: '< 2min',
+              integrations,
+              features,
+              isActive,
+              isSubscribed
             });
           }
         } catch (error) {
           console.error(`Error fetching agent ${id}:`, error);
-          // Continue with the next agent if one fails
         }
       }
 
       setAgents(agentsData);
-      setLoading(false);
     } catch (error) {
       console.error('Error fetching agents:', error);
+      showToast('Failed to fetch agents', 'error');
+    } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    if (contract) {
+      fetchAgents();
+    }
+  }, [contract, account]);
+
   const handleSubscription = async (agentId: number, price: number) => {
     if (!contract || !account) {
-      alert('Please connect your wallet first');
+      showToast('Please connect your wallet first', 'error');
       return;
     }
 
@@ -273,19 +270,26 @@ const MarketplacePage = () => {
       const tx = await contract.purchaseSubscription(agentId, {
         value: ethers.utils.parseEther(price.toString())
       });
+      
+      showToast('Processing subscription...', 'success');
+      
       await tx.wait();
       
-      // Update the local state to reflect the new subscription
       setAgents(prevAgents => 
         prevAgents.map(agent => 
           agent.id === agentId ? { ...agent, isSubscribed: true } : agent
         )
       );
 
-      alert('Subscription purchased successfully!');
-    } catch (error) {
+      showToast('Subscription purchased successfully!', 'success');
+    } catch (error: any) {
       console.error('Error purchasing subscription:', error);
-      alert('Failed to purchase subscription. Please try again.');
+      showToast(
+        error.code === 4001 
+          ? 'Transaction cancelled' 
+          : 'Failed to purchase subscription',
+        'error'
+      );
     }
   };
 
@@ -502,6 +506,15 @@ const MarketplacePage = () => {
 
   return (
     <main className="min-h-screen bg-white pt-24 px-4">
+      {/* Add Toast component at the top level */}
+      {toast.visible && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(prev => ({ ...prev, visible: false }))}
+        />
+      )}
+      
       <div className="max-w-7xl mx-auto mb-12">
         <h1 className="text-4xl font-bold mb-8 text-center">AI Agent Employment Space</h1>
         
@@ -538,7 +551,7 @@ const MarketplacePage = () => {
                   paymentType === 'USDT' ? 'bg-black text-white' : 'hover:bg-black/5'
                 }`}
               >
-                <Image src="/assets/usdt.png" alt="USDT" width={20} height={20} className="rounded-full" />
+                <Image src="/assets/coinbase.png" alt="USDT" width={20} height={20} className="rounded-full" />
                 USDT
               </button>
             </div>
